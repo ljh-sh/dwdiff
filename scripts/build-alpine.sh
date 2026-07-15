@@ -5,12 +5,17 @@
 set -eu
 
 echo "==> apk add: build deps (musl-native toolchain + ICU build deps)"
+# `g++` is needed for ICU's C++ build. `texinfo` is needed by
+# diffutils' autotools info-target even though we don't ship the
+# diffutils doc.
 apk add --no-cache \
 	build-base \
 	autoconf \
 	automake \
 	libtool \
+	g++ \
 	linux-headers \
+	texinfo \
 	bash
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"

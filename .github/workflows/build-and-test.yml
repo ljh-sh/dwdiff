@@ -71,7 +71,7 @@ jobs:
       # adds ~15 min to this step.
       - name: Build + smoke on Alpine (musl)
         if: matrix.libc == 'musl'
-        run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 sh -c 'apk add --no-cache bash autoconf automake libtool make g++ linux-headers >/dev/null && bash /w/scripts/build-alpine.sh && bash /w/scripts/smoke.sh'
+        run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 sh -c 'apk add --no-cache bash autoconf automake libtool make g++ linux-headers texinfo >/dev/null && bash /w/scripts/build-alpine.sh && bash /w/scripts/smoke.sh'
 
       - name: Build (macOS — host)
         if: matrix.os == 'macos' && matrix.target == 'aarch64-macos'
