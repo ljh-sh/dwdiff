@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Usage — dwdiff</title>
+<meta name="description" content="CLI flag tour for the dwdiff Unicode-aware word-level diff tool, with CJK and UTF-8 examples.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <a href="install.html">install</a> · <strong>usage</strong> · <a href="cjk.html">cjk</a> · <a href="build-audit.html">build audit</a> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>Usage</h1>
+    <p class="tagline">Unicode-aware word-level diff in practice &mdash;
+        flags, examples, and a note on CJK segmentation.</p>
+</section>
+
+<section id="basic">
+    <h2>Basic word diff</h2>
+    <p>The simplest invocation: two files, output to stdout.</p>
+<pre><code>$ dwdiff a.txt b.txt
+</code></pre>
+    <p>Inserted words are wrapped in <code>{+...+}</code>; deleted
+        words in <code>[-...-]</code>. Common words pass through
+        untouched. The bundled ICU 78.3 does the Unicode
+        word-segmentation in the background.</p>
+</section>
+
+<section id="flags">
+    <h2>Common flags</h2>
+    <table>
+        <thead><tr><th>flag</th><th>effect</th></tr></thead>
+        <tbody>
+            <tr><td><code>-d &lt;chars&gt;</code></td><td>Add &lt;chars&gt; to the delimiter set (treated as standalone words).</td></tr>
+            <tr><td><code>-w &lt;chars&gt;</code></td><td>Override whitespace characters (default: ASCII whitespace).</td></tr>
+            <tr><td><code>-c &lt;file&gt;</code></td><td>Read &lt;file&gt; as the "old" side; positional arg is "new".</td></tr>
+            <tr><td><code>-P</code>, <code>--punctuation</code></td><td>Treat all Unicode punctuation as delimiters.</td></tr>
+            <tr><td><code>-i</code>, <code>--ignore-case</code></td><td>Fold case while comparing (uses ICU casefold).</td></tr>
+            <tr><td><code>-s</code>, <code>--statistics</code></td><td>Print word counts to stderr.</td></tr>
+            <tr><td><code>-1</code>, <code>--no-deleted</code></td><td>Suppress deleted words.</td></tr>
+            <tr><td><code>-2</code>, <code>--no-inserted</code></td><td>Suppress inserted words.</td></tr>
+            <tr><td><code>-3</code>, <code>--no-common</code></td><td>Suppress common words.</td></tr>
+            <tr><td><code>-A &lt;algo&gt;</code></td><td>Diff algorithm: <code>default</code>, <code>minimal</code>, <code>patience</code>, <code>histogram</code>, <code>myers</code>.</td></tr>
+            <tr><td><code>--color</code> / <code>--no-color</code></td><td>Colour markers (default: <code>--color</code> on tty).</td></tr>
+            <tr><td><code>--diff-input</code></td><td>Read a unified diff on stdin and re-format at the word level.</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<section id="cjk">
+    <h2>CJK and UTF-8</h2>
+    <p>
+        With the bundled ICU 78.3, <code>dwdiff</code> does
+        Unicode-segmentation on CJK. The bundled ICU uses the
+        UAX #29 grapheme cluster break rules and the UAX #14 line
+        break rules. See <a href="cjk.html">cjk</a> for a full
+        worked example.
+    </p>
+    <p>
+        <strong>UTF-8 round-trip</strong> is preserved losslessly
+        (the binary is UTF-8 native). Emoji, combining marks, and
+        right-to-left text all pass through without corruption.
+    </p>
+</section>
+
+<section id="diff-input">
+    <h2>Re-formatting a unified diff</h2>
+    <p>
+        Pass an existing <code>diff -u</code> output to
+        <code>dwdiff --diff-input</code> to re-format it at the
+        word level. Useful for rendering a code review in a
+        terminal-friendly way.
+    </p>
+<pre><code>$ git diff | dwdiff --diff-input
+</code></pre>
+</section>
+
+<section id="stats">
+    <h2>Statistics</h2>
+<pre><code>$ dwdiff -s a.txt b.txt
+old: 7 words
+new: 7 words  6 86% common  1 14% deleted  0 0% changed
+</code></pre>
+    <p>Statistics go to <b>stderr</b>; the marked output goes to
+        <b>stdout</b>. So <code>dwdiff -s a.txt b.txt &gt;/dev/null</code>
+        is a common pattern in shell scripts.</p>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="install.html">install</a> ·
+        <a href="cjk.html">cjk →</a> ·
+        <a href="https://github.com/ljh-sh/dwdiff">ljh-sh/dwdiff on GitHub</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>

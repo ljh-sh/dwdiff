@@ -1,0 +1,154 @@
+/* ljh-sh/dwdiff site — minimal, glyph-clean. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", "Hiragino Sans", "Noto Sans CJK SC", "Noto Sans CJK TC", "Noto Sans CJK JP", sans-serif;
+    line-height: 1.55;
+    color: #1a1a1a;
+    background: #fafaf7;
+}
+
+body { padding: 2rem 1rem 4rem; }
+.wrap { max-width: 38rem; margin: 0 auto; }
+
+a { color: #b04e00; text-decoration: underline; text-decoration-thickness: 0.06em; text-underline-offset: 0.15em; }
+a:hover { color: #7a3500; }
+
+h1, h2, h3 { line-height: 1.2; margin-top: 1.6em; }
+h1 { font-size: 2.2rem; margin-top: 0; }
+h2 { font-size: 1.4rem; border-bottom: 1px solid #d8d8d0; padding-bottom: 0.3em; }
+h3 { font-size: 1.15rem; }
+
+p, ul, ol { margin: 0.8em 0; }
+ul, ol { padding-left: 1.3em; }
+li { margin: 0.3em 0; }
+
+code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.92em; background: #efece5; padding: 0.05em 0.35em; border-radius: 3px; }
+
+pre {
+    background: #1d1d1b;
+    color: #f4f1ea;
+    padding: 0.9em 1em;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.9em;
+    line-height: 1.45;
+}
+pre code { background: none; color: inherit; padding: 0; }
+
+.skip { position: absolute; left: -9999px; }
+.skip:focus { left: 1rem; top: 1rem; background: #fff; padding: 0.5em; z-index: 10; }
+
+.hero {
+    background: linear-gradient(to bottom, #fdf6e3 0%, #fafaf7 100%);
+    border: 1px solid #e6e0d0;
+    border-radius: 8px;
+    padding: 2rem 1.5rem 1.8rem;
+    margin-bottom: 2rem;
+}
+.hero h1 { font-size: 2.6rem; margin-bottom: 0.2em; font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: -0.02em; }
+.hero .tagline { font-size: 1.1rem; color: #444; }
+.hero .byline { font-size: 0.94rem; color: #555; }
+.hero .cpu-note, .hero .meta { font-size: 0.88rem; color: #666; margin-top: 0.7em; }
+
+.cta {
+    display: inline-block;
+    padding: 0.6em 1.1em;
+    background: #b04e00;
+    color: #fdf6e3 !important;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 500;
+    margin: 0.4em 0.4em 0.4em 0;
+}
+.cta:hover { background: #7a3500; }
+.cta.secondary {
+    background: transparent;
+    border: 1px solid #b04e00;
+    color: #b04e00 !important;
+}
+.cta.secondary:hover { background: #fdf6e3; }
+
+.toc {
+    background: #efece5;
+    border-radius: 4px;
+    padding: 1em 1.2em;
+    margin: 1.2em 0;
+}
+.toc ul { margin: 0.3em 0 0; padding-left: 1.3em; }
+
+/* Page header — section nav on the left, language switcher on the right. */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1em;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #d8d8d0;
+    padding-bottom: 0.6em;
+    margin-bottom: 1.6em;
+}
+.page-header .section-nav {
+    font-size: 0.88rem;
+    color: #555;
+}
+.page-header .section-nav a { color: #555; margin-right: 0.6em; text-decoration: none; }
+.page-header .section-nav a:hover { color: #1a1a1a; }
+
+/* Dedicated language switcher — boxed, at the right end of the header. */
+.page-header .lang-switch {
+    font-size: 0.88rem;
+    color: #555;
+    background: #efece5;
+    border: 1px solid #d8d8d0;
+    border-radius: 4px;
+    padding: 0.3em 0.7em;
+}
+.page-header .lang-switch a { color: #555; margin: 0 0.45em; text-decoration: none; }
+.page-header .lang-switch a:hover { color: #1a1a1a; }
+.page-header .lang-switch a[aria-current="true"] { font-weight: 600; color: #1a1a1a; }
+.page-header .lang-switch strong { color: #1a1a1a; font-weight: 600; }
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    font-size: 0.92em;
+}
+th, td {
+    border: 1px solid #d8d8d0;
+    padding: 0.45em 0.7em;
+    text-align: left;
+}
+th { background: #efece5; font-weight: 600; }
+tbody tr:nth-child(even) { background: #f6f4eb; }
+
+.note {
+    border-left: 3px solid #b04e00;
+    padding: 0.5em 0 0.5em 1em;
+    margin: 1em 0;
+    color: #444;
+    background: #fdf6e3;
+}
+
+.tldr {
+    border: 1px solid #d8d8d0;
+    border-left: 3px solid #b04e00;
+    background: #fdf6e3;
+    padding: 1em 1.2em 1em 1.4em;
+    margin: 1.2em 0 1.2em 0;
+    color: #333;
+    font-size: 0.94em;
+    line-height: 1.55;
+}
+.tldr p { margin: 0.4em 0; }
+.tldr b { color: #1a1a1a; }
+
+footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #d8d8d0;
+    font-size: 0.85rem;
+    color: #666;
+}

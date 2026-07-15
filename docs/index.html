@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>dwdiff — Unicode-aware word-level diff with CJK support in one static binary</title>
+<meta name="description" content="dwdiff: free (GPL-3.0) Unicode-aware word-level diff with CJK support, distributed as a single statically-linked binary for Linux/macOS/Windows. Vendored dwdiff 2.1.4 + libicu 78.3 by ljh-sh.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><strong>↑ home</strong> · <a href="install.html">install</a> · <a href="usage.html">usage</a> · <a href="cjk.html">cjk</a> · <a href="build-audit.html">build audit</a> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>dwdiff</h1>
+    <p class="tagline"><b>the free <code>dwdiff</code> Unicode-aware
+        word-level diff</b> with full CJK support, distributed as a
+        single self-contained static binary.</p>
+    <p class="byline">
+        <code>dwdiff</code> is vendored from
+        <a href="https://os.ghalkes.nl/dwdiff.html">dwdiff 2.1.4</a>
+        (G.P. Halkes, GPL-3.0) with
+        <a href="https://icu.unicode.org/">libicu 78.3</a> bundled
+        and statically linked &mdash; no system ICU needed.
+    </p>
+</section>
+
+<section id="what">
+    <h2>What it is</h2>
+    <p>
+        <code>dwdiff</code> is a word-level diff tool like
+        <a href="https://github.com/ljh-sh/wdiff">wdiff</a>, but
+        <b>Unicode-aware</b>. The key difference shows up on CJK
+        text:
+    </p>
+<pre><code>$ dwdiff -d '，' cn-a.txt cn-b.txt
+体育老师无奈，[-总被佔课现象困扰-]{+总被占课现象困扰+}。
+</code></pre>
+    <p>
+        With the bundled ICU 78.3, dwdiff segments CJK phrases
+        correctly and surfaces intra-line character changes. Stock
+        <code>wdiff</code> would treat the whole CJK line as one
+        giant "word" and show it as a single delete+add.
+    </p>
+</section>
+
+<section id="install">
+    <h2>Install (one line)</h2>
+    <p>
+        The fastest path uses
+        <a href="https://www.x-cmd.com/">x-cmd</a>:
+    </p>
+<pre><code>x eget ljh-sh/dwdiff
+</code></pre>
+    <p>
+        This installs <code>dwdiff</code> and the man page to
+        <code>~/.local/bin/</code>. See
+        <a href="install.html">install</a> for the manual walkthrough.
+    </p>
+</section>
+
+<section id="matrix">
+    <h2>Platform matrix</h2>
+    <p>
+        Every release builds <b>5 targets</b> via GitHub Actions on
+        native runners. Linux uses <b>musl-static</b> (Alpine
+        toolchain) so the binary runs on Alpine, Debian/Ubuntu,
+        RHEL/Fedora, Arch — every Linux distro — with zero
+        system-library dependencies. There is intentionally no
+        separate glibc/dynamic Linux variant.
+    </p>
+    <table>
+        <thead><tr><th>target</th><th>runner</th><th>linkage</th><th>archive</th></tr></thead>
+        <tbody>
+            <tr><td><code>x86_64-linux-musl</code></td><td><code>ubuntu-latest</code> + Alpine 3.20 docker</td><td>fully static musl (incl. ICU)</td><td><code>.tar.gz</code></td></tr>
+            <tr><td><code>aarch64-linux-musl</code></td><td><code>ubuntu-24.04-arm</code> + Alpine 3.20 docker</td><td>fully static musl (incl. ICU)</td><td><code>.tar.gz</code></td></tr>
+            <tr><td><code>aarch64-macos</code></td><td><code>macos-14</code></td><td>static, system libc/libSystem</td><td><code>.tar.gz</code></td></tr>
+            <tr><td><code>x86_64-macos</code></td><td><code>macos-14</code> (cross from aarch64)</td><td>static, system libc/libSystem</td><td><code>.tar.gz</code></td></tr>
+            <tr><td><code>x86_64-windows</code></td><td><code>windows-latest</code> + MSYS2 + mingw64</td><td>fully static (no DLLs)</td><td><code>.zip</code></td></tr>
+        </tbody>
+    </table>
+    <p>
+        aarch64-windows and additional targets are deferred.
+    </p>
+</section>
+
+<section id="audit">
+    <h2>Security</h2>
+    <p>
+        See <a href="security.html">security</a> for the
+        source-level audit. The audit covers <b>both</b> vendored
+        upstreams &mdash; dwdiff 2.1.4 <i>and</i> ICU 78.3 &mdash;
+        and includes a <b>CJK acceptance test</b> that gates every
+        release: the build script's CJK round-trip fixture proves
+        ICU is actually linked in (without ICU, dwdiff's CJK output
+        is just <code>[-整行-]{+整行+}</code> with no intra-line
+        visibility).
+    </p>
+</section>
+
+<footer>
+    <p>
+        This site is the GitHub Pages root for
+        <a href="https://github.com/ljh-sh/dwdiff">ljh-sh/dwdiff</a>.
+        Vendored source under
+        <a href="https://github.com/ljh-sh/dwdiff/tree/main/upstream/dwdiff">upstream/dwdiff/</a>
+        is GPL-3.0 by G.P. Halkes;
+        <a href="https://github.com/ljh-sh/dwdiff/tree/main/upstream/icu">upstream/icu/</a>
+        is permissive-licensed by the Unicode Consortium + IBM.
+        The wrapper source under this repo is MIT.
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>

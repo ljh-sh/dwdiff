@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Security — dwdiff</title>
+<meta name="description" content="Source-level security audit of vendored dwdiff 2.1.4 + ICU 78.3; HIGH findings and ljh-sh dist mitigations.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <a href="install.html">install</a> · <a href="usage.html">usage</a> · <a href="cjk.html">cjk</a> · <a href="build-audit.html">build audit</a> · <strong>security</strong></nav>
+</header>
+
+
+<section class="hero">
+    <h1>Security</h1>
+    <p class="tagline">Source-level audit summary. The full
+        <code>AUDIT-2026-07-15.md</code> lives in the repo.</p>
+</section>
+
+<section id="summary">
+    <h2>Summary</h2>
+    <p>
+        This audit covers <b>two</b> vendored upstreams:
+        <code>dwdiff 2.1.4</code> (the C source) and
+        <code>ICU 78.3</code> (the C/C++ source we link into the
+        static binary). Both are evaluated below.
+    </p>
+    <table>
+        <thead><tr><th>#</th><th>level</th><th>area</th><th>title</th></tr></thead>
+        <tbody>
+            <tr><td>1</td><td><b>HIGH</b></td><td>exec (dwfilter)</td><td><code>execvp()</code> with attacker-controlled args; documented design</td></tr>
+            <tr><td>2</td><td><b>HIGH</b></td><td>tempfile</td><td>Temp file path hardcoded <code>/tmp/dwdiffXXXXXXXX</code></td></tr>
+            <tr><td>3</td><td>MEDIUM</td><td>icu</td><td><code>option.decomposition</code> global, set at startup; per-cluster bounded</td></tr>
+            <tr><td>4</td><td>MEDIUM</td><td>icu</td><td><code>u_strFoldCase</code> + <code>u_getIntPropertyValue</code> per char; bounded</td></tr>
+            <tr><td>5</td><td>MEDIUM</td><td>fopen</td><td><code>fopen(optArg, "r+")</code> user-controlled; design choice</td></tr>
+            <tr><td>6</td><td>LOW</td><td>fopen</td><td><code>"r+"</code> does NOT create the file (safe)</td></tr>
+            <tr><td>7</td><td>LOW</td><td>file</td><td><code>option.output</code> not closed on parse-error path (kernel reaps)</td></tr>
+            <tr><td>8</td><td>LOW</td><td>env</td><td><code>getenv("HOME")</code> in profile.c; standard</td></tr>
+            <tr><td>9</td><td>INFO</td><td>diff</td><td>Bundled stripped GNU diff (no subprocess injection in <code>dwdiff</code> main)</td></tr>
+            <tr><td>10</td><td>INFO</td><td>icu</td><td>Public ICU API only; no internal headers</td></tr>
+            <tr><td>11</td><td>INFO</td><td>network</td><td>No outbound socket / connect in dwdiff or ICU as we use it</td></tr>
+            <tr><td>12</td><td>INFO</td><td>size</td><td>ICU 78.3 is large; static binary ~30 MB without <code>--disable-icuio</code> etc.</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<section id="h1">
+    <h2>Finding #1 (HIGH) — <code>dwfilter</code> <code>execvp()</code></h2>
+    <p><b>Where.</b> <code>src/dwfilter.c:156-170</code>
+        <code>execute(char * const args[])</code>.</p>
+    <p><b>Effect.</b> dwfilter is a developer tool, a
+        "post-processor launcher" for wdiff-style output. Its
+        command line is
+        <code>dwfilter &lt;old.txt&gt; &lt;new.txt&gt; &lt;post-processor&gt; -- &lt;post-args&gt;...</code>.
+        The <code>&lt;post-processor&gt;</code> is
+        <code>execvp</code>-ed as a child process. The user
+        explicitly chose it. <code>args[1]</code> is fixed to
+        <code>--dwfilter=&lt;tempfile&gt;</code>; the user-supplied
+        <code>args[2..]</code> are passed to <code>execvp</code>
+        as-is. If the post-processor is <code>sh</code>, this is
+        shell-injection territory &mdash; but the user chose the
+        post-processor, so this is them shooting themselves in
+        the foot.</p>
+    <p><b>Severity rationale.</b> Same as <code>make</code>,
+        <code>find -exec</code>, <code>xargs</code>. Documented
+        design, no fix.</p>
+</section>
+
+<section id="h2">
+    <h2>Finding #2 (HIGH) — temp files default to <code>/tmp</code></h2>
+    <p><b>Where.</b> <code>src/tempfile.h:20</code>
+        <code>TEMPLATE "/tmp/dwdiffXXXXXXXX"</code>.</p>
+    <p><b>Effect.</b> dwdiff always creates temp files in
+        <code>/tmp</code>, not honoring <code>$TMPDIR</code>.
+        Uses <code>mkstemp()</code> (race-free random suffix), so
+        not exploitable, but on a multi-user system a local
+        attacker can <code>inotify /tmp/dwdiff*</code> and observe
+        that dwdiff is being run.</p>
+    <p><b>Suggested fix.</b> Patch the <code>TEMPLATE</code> macro
+        in <code>upstream/dwdiff/src/tempfile.h</code> to honor
+        <code>$TMPDIR</code> first. ~3-line patch. Re-vendor on
+        next upstream sync.</p>
+</section>
+
+<section id="acceptance">
+    <h2>CJK acceptance test (build gate)</h2>
+    <p>The audit's most important deliverable for the <b>dist
+        build</b> is the CJK acceptance test, codified in
+        <code>scripts/smoke.sh</code>. A correctly-built
+        <code>dwdiff</code> must produce, for the CJK fixture in
+        <code>smoke.sh</code>, output that proves ICU is actually
+        linked in:</p>
+<pre><code>体育老师无奈，[-总被佔课现象困扰-]{+总被占课现象困扰+}。
+</code></pre>
+    <p>Without ICU, dwdiff's CJK output is just
+        <code>[-整行-]{+整行+}</code> with no intra-line
+        visibility. The smoke test asserts the markers are
+        <b>localised</b> (around a phrase, not the whole line)
+        &mdash; the failure mode is "build without ICU succeeded
+        but ICU isn't actually linked in".</p>
+</section>
+
+<section id="mitigations">
+    <h2>Dist-only mitigations already applied</h2>
+    <ul>
+        <li><b>Statically linked ICU 78.3</b> &mdash; no system
+            ICU dependency, no <code>LD_LIBRARY_PATH</code>
+            requirement. <code>otool -L</code> on macOS confirms
+            no <code>libicu*.dylib</code> is referenced.</li>
+        <li><b>5-target CI matrix</b> &mdash; each release is
+            rebuilt from scratch on every push + every tag. No
+            cached binary artefacts cross the trust boundary.</li>
+        <li><b>Vendored at <code>dwdiff 2.1.4</code> + <code>ICU 78.3</code></b>
+            &mdash; the latest stable versions of both, inheriting
+            upstream security fixes.</li>
+        <li><b>ICU build with <code>--disable-icuio --disable-icusnfp
+            --disable-icuscriptbreaks --disable-extras</code></b>
+            &mdash; keeps the static lib under 30 MB. The
+            disabled components are not used by dwdiff's code
+            path.</li>
+    </ul>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="cjk.html">cjk</a> ·
+        <a href="https://github.com/ljh-sh/dwdiff/blob/main/AUDIT-2026-07-15.md">Full audit on GitHub →</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>

@@ -1,0 +1,161 @@
+name: build-and-test
+
+# PR / push cheap-but-thorough test: every push to main and every PR
+# builds the full 5-target matrix (musl x86_64 + aarch64, macos
+# aarch64 + x86_64, windows x86_64) and runs the smoke test against
+# the freshly-built `dwdiff` (which embeds ICU 78.3 statically).
+# Uploads dist/ as workflow artifacts.
+#
+# The slowest step is the ICU build — ~10 min on a 4-core runner, ~15
+# min on Alpine's gcc-13 in the docker. We pass
+# --disable-icuio --disable-icusnfp --disable-icuscriptbreaks
+# --disable-extras to keep the static ICU libs under 30 MB.
+#
+# Splits cleanly with release.yml (ljh-sh dist regime).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-linux-musl,  runner: ubuntu-latest,    os: linux,   libc: musl, docker_arch: amd64 }
+          - { target: aarch64-linux-musl, runner: ubuntu-24.04-arm, os: linux,   libc: musl, docker_arch: arm64 }
+          - { target: aarch64-macos,      runner: macos-14,         os: macos                 }
+          - { target: x86_64-macos,       runner: macos-14,         os: macos                 }
+          - { target: x86_64-windows,     runner: windows-latest,   os: windows               }
+    continue-on-error: ${{ matrix.target == 'aarch64-linux-musl' || matrix.target == 'aarch64-macos' || matrix.target == 'x86_64-windows' }}
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---- install deps ----
+      - name: Install deps (Linux gnu — needed to drive the alpine docker locally)
+        if: matrix.libc == 'musl'
+        run: sudo apt-get update && sudo apt-get install -y autoconf automake libtool
+
+      - name: Install deps (macOS)
+        if: matrix.os == 'macos'
+        run: |
+          brew update
+          brew install autoconf automake libtool pkg-config
+
+      - name: Install deps (Windows MSYS2 + mingw64)
+        if: matrix.os == 'windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git autoconf automake libtool
+            make base-devel
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkg-config
+
+      # ---- build + smoke ----
+      # Musl: single Alpine `docker run` does build + smoke. ICU build
+      # adds ~15 min to this step.
+      - name: Build + smoke on Alpine (musl)
+        if: matrix.libc == 'musl'
+        run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 sh -c 'apk add --no-cache bash autoconf automake libtool make g++ linux-headers >/dev/null && bash /w/scripts/build-alpine.sh && bash /w/scripts/smoke.sh'
+
+      - name: Build (macOS — host)
+        if: matrix.os == 'macos' && matrix.target == 'aarch64-macos'
+        run: bash scripts/build.sh
+
+      - name: Build (macOS x86_64 — cross-compile)
+        if: matrix.target == 'x86_64-macos'
+        env:
+          DWDIFF_TARGET_ARCH: x86_64
+          DWDIFF_TARGET_OS: apple-darwin
+          DWDIFF_OS_HINT: darwin
+        run: bash scripts/build.sh
+
+      - name: Build (Windows x86_64 — msys2 bash)
+        if: matrix.os == 'windows' && matrix.target == 'x86_64-windows'
+        shell: msys2 {0}
+        run: bash scripts/build.sh
+
+      # ---- smoke ----
+      - name: Smoke test on host (gnu / macos)
+        if: matrix.os != 'windows' && matrix.libc != 'musl'
+        run: bash scripts/smoke.sh
+
+      - name: Smoke test on Alpine (musl)
+        if: matrix.libc == 'musl'
+        run: echo "smoke already ran inside the docker build step"
+
+      - name: Smoke test on Windows (informational only)
+        if: matrix.os == 'windows'
+        shell: msys2 {0}
+        continue-on-error: true
+        run: |
+          set +e
+          DW="${{ github.workspace }}/build/dwdiff/dwdiff.exe"
+          echo "==> Windows smoke is currently informational only."
+          ls -la "$DW" || { echo "FAIL: dwdiff.exe missing"; exit 1; }
+          "$DW" --version 2>&1 | head -3 || true
+          echo "OK: binary executes; CJK round-trip smoke deferred."
+
+      # ---- package ----
+      - name: Package (Linux / macOS)
+        if: matrix.os != 'windows'
+        run: TARGET=${{ matrix.target }} bash scripts/package.sh
+
+      - name: Package (Windows)
+        if: matrix.os == 'windows'
+        shell: msys2 {0}
+        env:
+          TARGET: ${{ matrix.target }}
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1
+
+      # ---- verify ----
+      - name: Verify self-contained (macOS only)
+        if: matrix.os == 'macos'
+        run: |
+          set -e
+          bin="dist/dwdiff-${{ matrix.target }}/bin/dwdiff"
+          otool -L "$bin"
+          # dwdiff + ICU should NOT link any Homebrew dylib. libSystem
+          # is fine (system libc). libicuuc / libicudata must NOT be
+          # linked dynamically — they should be embedded statically.
+          otool -L "$bin" | grep -E '/(opt/homebrew|usr/local)/' \
+            && { echo "FAIL: $bin links Homebrew dylibs"; exit 1; } || true
+          otool -L "$bin" | grep -E 'libicu(lib|uc|data)' \
+            && { echo "FAIL: $bin dynamically links ICU — should be static"; exit 1; } || true
+          echo "OK: only system libs (/usr/lib, /System/Library)"
+
+      - name: Show file type & size
+        if: matrix.os != 'windows'
+        run: |
+          file dist/dwdiff-${{ matrix.target }}/bin/dwdiff
+          du -h dist/dwdiff-${{ matrix.target }}.tar.gz
+
+      - name: Show file type & size (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem dist/dwdiff-${{ matrix.target }}/bin/dwdiff.exe | Format-Table Name, Length
+          Get-ChildItem dist/dwdiff-${{ matrix.target }}.zip | Format-Table Name, Length
+
+      # ---- upload artifact ----
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dwdiff-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error

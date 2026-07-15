@@ -1,0 +1,23 @@
+# GitHub Pages config for ljh-sh/dwdiff — Jekyll ("legacy" build_type).
+# Hand-written HTML (matches the ljh-sh/lhasa pattern). No lang switch
+# per the v0.1.0 design (EN-only).
+
+title: "dwdiff"
+description: "Free (GPL-3.0) Unicode-aware word-level diff with CJK support, distributed as a single statically-linked binary for Linux/macOS/Windows. Vendored dwdiff 2.1.4 + libicu 78.3 by ljh-sh."
+
+# Site served at https://ljh-sh.github.io/dwdiff/
+baseurl: /dwdiff
+url:    https://ljh-sh.github.io
+
+markdown: kramdown
+highlighter: rouge
+
+# We don't use the default minima theme — we ship our own styles.css.
+theme: null
+
+# Ignore vendor/build outputs so they're never published.
+exclude:
+  - _site
+  - .sass-cache
+  - node_modules
+  - vendor

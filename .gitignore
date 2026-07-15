@@ -1,0 +1,52 @@
+# Build artefacts
+build/
+dist/
+*.o
+*.lo
+*.la
+*.a
+*.so
+*.so.*
+.deps/
+.libs/
+
+# Autotools generated (vendored source)
+INSTALL
+aclocal.m4
+autom4te.cache/
+autotools/
+compile
+config.guess
+config.h.in
+config.h.in~
+config.log
+config.status
+config.sub
+configure
+depcomp
+install-sh
+libtool
+ltmain.sh
+missing
+test-driver
+stamp-h1
+Makefile.in
+Makefile
+
+# ICU-specific build artefacts
+upstream/icu/source/data/out/
+upstream/icu/source/data/icu/
+upstream/icu/bin/
+upstream/icu/lib/
+upstream/icu/config/icucross.mk
+upstream/icu/config/Makefile.inc
+upstream/icu/config.status
+
+# CI artefacts
+.github/release-output/
+
+# Editor / OS
+*.swp
+*~
+.DS_Store
+*.tmp

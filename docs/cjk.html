@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CJK — dwdiff</title>
+<meta name="description" content="How dwdiff's bundled ICU 78.3 handles CJK (Chinese, Japanese, Korean) text. Worked examples of Simplified-vs-Traditional and punctuation-aware diff.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <a href="install.html">install</a> · <a href="usage.html">usage</a> · <strong>cjk</strong> · <a href="build-audit.html">build audit</a> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>CJK</h1>
+    <p class="tagline">How <code>dwdiff</code>'s bundled ICU 78.3
+        handles Chinese / Japanese / Korean text.</p>
+</section>
+
+<section id="problem">
+    <h2>The problem with stock <code>wdiff</code> on CJK</h2>
+    <p>
+        Stock <code>wdiff</code> (and any tool using
+        <code>isspace()</code> for word boundaries) treats CJK
+        strings without spaces as one giant "word". So a
+        simplified-vs-traditional diff gets reported as a single
+        delete+add of the whole line:
+    </p>
+<pre><code>$ printf '体育老师无奈，总被佔课现象困扰。\n' &gt; a.txt
+$ printf '体育老师无奈，总被占课现象困扰。\n' &gt; b.txt
+$ wdiff a.txt b.txt
+[-体育老师无奈，总被佔课现象困扰。-]{+体育老师无奈，总被占课现象困扰。+}
+</code></pre>
+    <p>
+        The only character that actually changed is <code>佔</code>
+        &rarr; <code>占</code>. Stock <code>wdiff</code> can't tell.
+    </p>
+</section>
+
+<section id="dwdiff">
+    <h2>What <code>dwdiff -d '，'</code> gives you</h2>
+    <p>
+        <code>dwdiff</code> uses the bundled ICU 78.3 to do UAX #29
+        grapheme cluster segmentation. Combined with the
+        <code>-d '，'</code> flag (Chinese comma as a delimiter),
+        it produces:
+    </p>
+<pre><code>$ dwdiff -d '，' a.txt b.txt
+体育老师无奈，[-总被佔课现象困扰-]{+总被占课现象困扰+}。
+</code></pre>
+    <p>
+        The <code>佔课</code> &rarr; <code>占课</code> change is
+        localised inside the markers. The rest of the line passes
+        through as common text.
+    </p>
+</section>
+
+<section id="punctuation">
+    <h2>Choosing delimiters for CJK</h2>
+    <p>
+        <code>dwdiff</code> treats whitespace as a delimiter by
+        default. For CJK, you almost always want to add CJK
+        punctuation as additional delimiters so the diff can find
+        word boundaries inside sentences:
+    </p>
+<pre><code># Traditional Chinese / Japanese punctuation
+$ dwdiff -d '，。、；：？！（）' a.txt b.txt
+
+# Simplified Chinese punctuation
+$ dwdiff -d '，。、；：？！（）' a.txt b.txt
+
+# Japanese kana (hiragana + katakana common chars)
+$ dwdiff -d '、。・「」『』' a.txt b.txt
+
+# Korean
+$ dwdiff -d '.,?!' ko-a.txt ko-b.txt   # Korean doesn't use CJK punctuation
+</code></pre>
+    <p>
+        Or use <code>-P</code> (or <code>--punctuation</code>) to
+        treat all Unicode punctuation as delimiters.
+    </p>
+</section>
+
+<section id="icu">
+    <h2>What ICU contributes</h2>
+    <p>
+        ICU 78.3 (statically linked into the <code>dwdiff</code>
+        binary) provides:
+    </p>
+    <ul>
+        <li><b>UTF-8 validation + grapheme cluster segmentation</b>
+            (UAX #29). Without this, dwdiff would treat each
+            UTF-8 byte as a "character" and produce garbage on
+            multi-byte CJK text.</li>
+        <li><b>Casefold</b> (UAX #21). The <code>-i</code> flag
+            uses ICU's <code>u_strFoldCase</code>, which handles
+            Turkish dotted-i, German sharp-s, and Greek final
+            sigma correctly &mdash; not just naive ASCII
+            <code>tolower()</code>.</li>
+        <li><b>Whitespace classification</b>. ICU's
+            <code>u_isUWhiteSpace</code> includes U+3000 (CJK
+            ideographic space), U+00A0 (non-breaking space), and
+            other non-ASCII whitespace &mdash; not just ASCII
+            <code>isspace()</code>.</li>
+        <li><b>Normalisation</b> (UAX #15). dwdiff normalises
+            characters to NFD before comparing, so composed and
+            decomposed forms (e.g. <code>é</code> vs
+            <code>e</code> + combining acute) compare equal.</li>
+    </ul>
+</section>
+
+<section id="acceptance">
+    <h2>CJK acceptance test (build gate)</h2>
+    <p>
+        The build script's <code>smoke.sh</code> runs a CJK
+        round-trip fixture as the release gate. The assertion is
+        documented in <a href="security.html">security</a> §"CJK
+        acceptance test". A correctly-built <code>dwdiff</code>
+        must produce the localised marker, not the line-level
+        marker. Failure means ICU is not actually linked in.
+    </p>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="usage.html">usage</a> ·
+        <a href="security.html">security →</a> ·
+        <a href="https://github.com/ljh-sh/dwdiff">ljh-sh/dwdiff on GitHub</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>

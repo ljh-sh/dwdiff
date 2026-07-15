@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Build audit — dwdiff</title>
+<meta name="description" content="How ljh-sh/dwdiff is built: the 5-target matrix, the ICU build flow, SHA256SUMS verification, and reproducibility notes.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <a href="install.html">install</a> · <a href="usage.html">usage</a> · <a href="cjk.html">cjk</a> · <strong>build audit</strong> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>Build audit</h1>
+    <p class="tagline">How <code>ljh-sh/dwdiff</code> is built, what
+        each target produces, and how to verify a release.</p>
+</section>
+
+<section id="matrix">
+    <h2>5-target build matrix</h2>
+    <table>
+        <thead><tr><th>target</th><th>runner</th><th>toolchain</th><th>linkage</th></tr></thead>
+        <tbody>
+            <tr><td><code>x86_64-linux-musl</code></td><td><code>ubuntu-latest</code> + Alpine 3.20 docker</td><td>alpine gcc + musl + bundled ICU 78.3</td><td>fully static</td></tr>
+            <tr><td><code>aarch64-linux-musl</code></td><td><code>ubuntu-24.04-arm</code> + Alpine 3.20 docker</td><td>alpine gcc + musl + bundled ICU 78.3</td><td>fully static</td></tr>
+            <tr><td><code>aarch64-macos</code></td><td><code>macos-14</code></td><td>Apple clang + bundled ICU 78.3</td><td>static, system libc/libSystem</td></tr>
+            <tr><td><code>x86_64-macos</code></td><td><code>macos-14</code></td><td>Apple clang (<code>-arch x86_64</code>) + bundled ICU 78.3</td><td>static, system libc/libSystem</td></tr>
+            <tr><td><code>x86_64-windows</code></td><td><code>windows-latest</code> + MSYS2 + mingw64</td><td>x86_64-w64-mingw32-gcc + bundled ICU 78.3</td><td>fully static (no DLLs)</td></tr>
+        </tbody>
+    </table>
+    <p>The matrix is split into two workflows (ljh-sh dist regime):</p>
+    <ul>
+        <li><b><code>build-and-test.yml</code></b> &mdash; fires on
+            push to <code>main</code> + every PR. Runs the matrix
+            + smoke + uploads per-target artifacts.</li>
+        <li><b><code>release.yml</code></b> &mdash; fires on
+            <code>v*</code> tags + <code>workflow_dispatch</code>.
+            Runs the same matrix, downloads all artifacts, and
+            creates a GitHub Release with the
+            <code>SHA256SUMS</code> file.</li>
+    </ul>
+</section>
+
+<section id="build-script">
+    <h2>What <code>scripts/build.sh</code> does</h2>
+    <ol>
+        <li><b>Sub-build 1: ICU 78.3</b> &mdash; out-of-tree
+            <code>runConfigureICU Linux</code> with
+            <code>--enable-static --disable-shared
+            --disable-icuio --disable-icusnfp
+            --disable-icuscriptbreaks --disable-extras
+            --disable-samples --disable-tests</code>, then
+            <code>make</code>. ~10 min on a 4-core runner.
+            Produces <code>build/icu/lib/libicuuc.a</code> +
+            <code>build/icu/lib/libicudata.a</code>.</li>
+        <li><b>Sub-build 2: dwdiff</b> &mdash; in-source
+            <code>./configure --without-gettext --prefix=/usr/local</code>
+            + <code>make</code>. Detects ICU via
+            <code>pkg-config</code>; we write a shim
+            <code>build/pkgconfig/icu-uc.pc</code> that points
+            dwdiff's <code>icu-uc</code> lookup at the vendored
+            static ICU. ~3 s. Produces
+            <code>upstream/dwdiff/dwdiff</code> + <code>dwfilter</code>.</li>
+        <li><b>Copy + distclean</b> &mdash; copy the freshly-built
+            binaries to <code>build/dwdiff/</code> (so
+            <code>smoke.sh</code> + <code>package.sh</code> can
+            find them in a stable location), then
+            <code>make distclean</code> in the source dir to
+            restore the upstream tree.</li>
+    </ol>
+    <p>
+        dwdiff's <code>configure</code> writes
+        <code>config.pkg</code> in the source dir, so the build is
+        in-source by necessity. We restore the tree after build
+        via <code>make distclean</code> + an explicit
+        <code>cp config.pkg</code> from the tarball at vendor-refresh
+        time.
+    </p>
+</section>
+
+<section id="size">
+    <h2>Why the binary is so big</h2>
+    <p>
+        A static <code>dwdiff</code> binary with bundled ICU 78.3
+        is ~30-35 MB. The bulk is the ICU Unicode database
+        (~15 MB of <code>libicudata.a</code>) + the ICU
+        normalisation tables. We disable
+        <code>--disable-icuio --disable-icusnfp
+        --disable-icuscriptbreaks --disable-extras</code> to
+        trim ~20% of that. Further reduction is possible with
+        the <code>ICU_DATA_SIZE_WHEN_STATIC</code> build option,
+        but requires custom data-build tooling and is deferred
+        to a v0.2.0 build-script patch.
+    </p>
+    <p>
+        The size is the price of a fully self-contained CJK
+        + Unicode-segmentation diff tool. Distroless / scratch
+        containers that don't have system ICU get full support.
+    </p>
+</section>
+
+<section id="verify">
+    <h2>Verifying a release</h2>
+    <p>Each GitHub Release ships:</p>
+    <ul>
+        <li>5 per-target archives (<code>dwdiff-&lt;target&gt;.tar.gz</code>
+            or <code>.zip</code>)</li>
+        <li>5 per-archive <code>.sha256</code> files</li>
+        <li>1 top-level <code>SHA256SUMS</code> file (basename-keyed,
+            no <code>dist/</code> prefix)</li>
+    </ul>
+    <p>To verify the Linux x86_64 musl binary:</p>
+<pre><code>curl -L -O https://github.com/ljh-sh/dwdiff/releases/latest/download/dwdiff-x86_64-linux-musl.tar.gz
+curl -L -O https://github.com/ljh-sh/dwdiff/releases/latest/download/dwdiff-x86_64-linux-musl.tar.gz.sha256
+sha256sum -c dwdiff-x86_64-linux-musl.tar.gz.sha256
+</code></pre>
+    <p>To verify all 5 archives against the top-level
+        <code>SHA256SUMS</code>:</p>
+<pre><code>curl -L -O https://github.com/ljh-sh/dwdiff/releases/latest/download/SHA256SUMS
+for f in dwdiff-*.tar.gz dwdiff-*.zip; do sha256sum -c &lt;(grep "  $f$" SHA256SUMS); done
+</code></pre>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="install.html">install</a> ·
+        <a href="usage.html">usage</a> ·
+        <a href="https://github.com/ljh-sh/dwdiff">ljh-sh/dwdiff on GitHub</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>

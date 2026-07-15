@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Install — dwdiff</title>
+<meta name="description" content="One-line install of the free Unicode-aware word-level diff tool: x eget ljh-sh/dwdiff, or download a per-target static binary, or build from source.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <strong>install</strong> · <a href="usage.html">usage</a> · <a href="cjk.html">cjk</a> · <a href="build-audit.html">build audit</a> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>Install</h1>
+    <p class="tagline">Three install paths &mdash; static binary first,
+        manual per-target download second, source build third.</p>
+</section>
+
+<section id="static">
+    <h2>1. Static binary (one line)</h2>
+    <p>The fastest and most portable install path. Use
+        <code>x eget</code> &mdash; <a href="https://www.x-cmd.com/">x-cmd</a>'s
+        wrapper around the upstream GitHub release pipeline:</p>
+<pre><code>x eget ljh-sh/dwdiff
+</code></pre>
+    <p>
+        The installed binary is <code>dwdiff</code> (with the
+        bundled ICU 78.3 statically linked &mdash; no system ICU
+        needed). The binary is large (~30 MB) because of the
+        embedded ICU; install size is the price for full CJK
+        + Unicode-segmentation support.
+    </p>
+    <p>After install:</p>
+<pre><code>$ dwdiff --version | head -1
+dwdiff 2.1.4
+</code></pre>
+</section>
+
+<section id="manual">
+    <h2>2. Manual per-target download</h2>
+    <p>
+        If you can't use x-cmd, head to the
+        <a href="https://github.com/ljh-sh/dwdiff/releases">GitHub Releases</a>
+        page and pick the tarball for your target. Each release
+        publishes 5 archives + 5 <code>.sha256</code> + a top-level
+        <code>SHA256SUMS</code>.
+    </p>
+    <p>Example (Linux x86_64 musl):</p>
+<pre><code>curl -L -o dwdiff.tar.gz https://github.com/ljh-sh/dwdiff/releases/latest/download/dwdiff-x86_64-linux-musl.tar.gz
+curl -L -o dwdiff.tar.gz.sha256 https://github.com/ljh-sh/dwdiff/releases/latest/download/dwdiff-x86_64-linux-musl.tar.gz.sha256
+sha256sum -c dwdiff.tar.gz.sha256
+tar xzf dwdiff.tar.gz
+sudo install -m 0755 dwdiff-x86_64-linux-musl/bin/dwdiff dwdiff-x86_64-linux-musl/bin/dwfilter /usr/local/bin/
+sudo install -m 0644 dwdiff-x86_64-linux-musl/man/man1/*.1 /usr/local/share/man/man1/ 2&gt;/dev/null || true
+</code></pre>
+    <p>On macOS, use <code>shasum -a 256</code> instead of
+        <code>sha256sum</code>; on Windows, use
+        <code>Get-FileHash -Algorithm SHA256</code>.</p>
+</section>
+
+<section id="source">
+    <h2>3. Build from source (vendoring update)</h2>
+    <p>This repo ships <code>upstream/dwdiff/</code> and
+        <code>upstream/icu/</code> as clean copies (no local
+        patches). To refresh:</p>
+<pre><code># dwdiff
+curl -L -o /tmp/dwdiff.tar.bz2 https://os.ghalkes.nl/dist/dwdiff-2.1.4.tar.bz2
+rm -rf upstream/dwdiff &amp;&amp; tar xjf /tmp/dwdiff.tar.bz2 -C /tmp/ \
+  &amp;&amp; mv /tmp/dwdiff-2.1.4 upstream/dwdiff
+# Preserve config.pkg (configure overwrites it)
+cp /tmp/dwdiff-2.1.4/config.pkg upstream/dwdiff/config.pkg
+
+# ICU
+curl -L -o /tmp/icu-sources.tgz \
+  https://github.com/unicode-org/icu/releases/download/release-78.3/icu4c-78.3-sources.tgz
+rm -rf upstream/icu &amp;&amp; tar xzf /tmp/icu-sources.tgz -C /tmp/ \
+  &amp;&amp; mv /tmp/icu upstream/icu
+</code></pre>
+    <p>Then run <code>bash scripts/build.sh &amp;&amp; bash scripts/smoke.sh</code>
+        to reproduce the CI locally. The ICU build is the slow step
+        (~10 min) &mdash; be patient. For a true musl-static build:</p>
+<pre><code>docker run --rm --platform linux/amd64 -v "$PWD":/w -w /w alpine:3.20 \
+    sh -c 'apk add --no-cache bash autoconf automake libtool make g++ \
+      linux-headers &gt;/dev/null &amp;&amp; bash /w/scripts/build-alpine.sh \
+      &amp;&amp; bash /w/scripts/smoke.sh'
+</code></pre>
+    <p>
+        See <a href="build-audit.html">build audit</a> for the
+        per-target SHAs and the
+        <a href="https://github.com/ljh-sh/dwdiff/blob/main/scripts/build.sh"><code>scripts/build.sh</code></a>
+        source.
+    </p>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="usage.html">usage →</a> ·
+        <a href="https://github.com/ljh-sh/dwdiff">ljh-sh/dwdiff on GitHub</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>
