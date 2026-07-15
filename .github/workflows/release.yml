@@ -103,6 +103,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') && needs.build.result == 'success'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # upload release assets + create the release
+      id-token: write       # cosign keyless OIDC
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -114,11 +117,63 @@ jobs:
           find . -type f \( -name '*.tar.gz' -o -name '*.zip' \) -print0 \
             | xargs -0 sha256sum | sed 's|^\([^ ]*\)  \./|\1  |' > SHA256SUMS
           cat SHA256SUMS
+
+      # ---- cosign keyless signing -----------------------------------
+      # See ljh-sh/wdiff/.github/workflows/release.yml for the full
+      # rationale. In short: cosign sign-blob in keyless mode uses
+      # the GitHub Actions OIDC token (via `id-token: write`) to
+      # issue a Fulcio cert and post a Rekor transparency-log entry
+      # per artefact. Verifiers check the cert's identity matches
+      # `github.com/ljh-sh/dwdiff` and the OIDC issuer is
+      # `https://token.actions.githubusercontent.com`.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@2c152972ef6649eb3f7c917a9b9b5d1e2c408c46 # v3.5.0
+      - name: Sign release artefacts (keyless, OIDC)
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+          cd dist
+          for f in $(find . -type f \( -name '*.tar.gz' -o -name '*.zip' \)); do
+            echo "==> signing $f"
+            cosign sign-blob --yes --output-signature "${f}.sig" --output-certificate "${f}.cert" "$f"
+          done
+          echo "==> cosign signing done"
+
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/*.tar.gz
+            dist/*.tar.gz.sig
+            dist/*.tar.gz.cert
             dist/*.zip
+            dist/*.zip.sig
+            dist/*.zip.cert
             dist/*.sha256
             dist/SHA256SUMS
           generate_release_notes: true
+          body: |
+            ## Install
+
+            ```bash
+            x eget ljh-sh/dwdiff
+            ```
+
+            Or download a per-target tarball, verify with the SHA256SUMS file,
+            and (in v0.2.0+) verify the cosign keyless signature:
+
+            ```bash
+            curl -L -O https://github.com/ljh-sh/dwdiff/releases/latest/download/dwdiff-x86_64-linux-musl.tar.gz
+            curl -L -O https://github.com/ljh-sh/dwdiff/releases/latest/download/dwdiff-x86_64-linux-musl.tar.gz.sig
+            curl -L -O https://github.com/ljh-sh/dwdiff/releases/latest/download/dwdiff-x86_64-linux-musl.tar.gz.cert
+            curl -L -O https://github.com/ljh-sh/dwdiff/releases/latest/download/dwdiff-x86_64-linux-musl.tar.gz.sha256
+            sha256sum -c dwdiff-x86_64-linux-musl.tar.gz.sha256
+            cosign verify-blob \
+              --certificate-identity-regexp 'github.com/ljh-sh/dwdiff' \
+              --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+              dwdiff-x86_64-linux-musl.tar.gz \
+              dwdiff-x86_64-linux-musl.tar.gz.sig \
+              dwdiff-x86_64-linux-musl.tar.gz.cert
+            ```
+
+            See [ljh-sh.github.io/dwdiff](https://ljh-sh.github.io/dwdiff/) for the full
+            install walkthrough, tldr examples, and security audit.
