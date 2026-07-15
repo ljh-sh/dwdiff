@@ -50,13 +50,21 @@ if [ "$TARGET_ARCH" != "$HOST_ARCH" ] || [ -n "${DWDIFF_TARGET_OS:-}" ]; then
 		export LDFLAGS="-arch $TARGET_ARCH"
 		;;
 	windows)
-		export CC="${TARGET_ARCH}-w64-mingw32-gcc"
-		export CXX="${TARGET_ARCH}-w64-mingw32-g++"
-		export AR="${TARGET_ARCH}-w64-mingw32-ar"
-		export RANLIB="${TARGET_ARCH}-w64-mingw32-ranlib"
+		# ICU's `runConfigureICU Linux` checks for clang++ but
+		# mingw64 doesn't ship clang. We pass the mingw GCC as
+		# both CC and CXX, and use --host=x86_64-w64-mingw32 so
+		# the `Linux` probe goes through the GNU-on-MingW
+		# path (which does NOT require clang++).
+		export CC="x86_64-w64-mingw32-gcc"
+		export CXX="x86_64-w64-mingw32-g++"
+		export AR="x86_64-w64-mingw32-ar"
+		export RANLIB="x86_64-w64-mingw32-ranlib"
 		export CFLAGS="-O2 -std=gnu11"
 		export CXXFLAGS="-O2 -std=gnu++17"
 		export LIBS="-lbcrypt -lws2_32"
+		# For runConfigureICU: this is x86_64-w64-mingw32 (the
+		# mingw GCC triplet), and the OS_HINT is "windows" so
+		# build.sh picks the windows case.
 		;;
 	*)
 		export CC=clang
@@ -81,15 +89,18 @@ ICU_BUILD="$BUILD_DIR/icu"
 mkdir -p "$ICU_BUILD"
 
 echo "==> ICU configure (out-of-tree: $ICU_BUILD)"
-# CXXFLAGS=-Wno-error tells the macOS clang to NOT treat the
-# ICU 78.3 C++ warnings as errors. Same fix as the Alpine
-# build — see comment in scripts/build-alpine.sh. We export
-# CXXFLAGS into the subshell so it applies to BOTH the
-# runConfigureICU invocation AND the subsequent make.
+# We pass --host to runConfigureICU for cross-compile (windows
+# target uses x86_64-w64-mingw32; everything else is native
+# Linux so no --host needed).
+ICU_HOST_FLAG=""
+if [ "${WDIFF_OS_HINT:-}" = "windows" ] || [ "${DWDIFF_OS_HINT:-}" = "windows" ]; then
+	ICU_HOST_FLAG="--host=x86_64-w64-mingw32"
+fi
 ( cd "$ICU_BUILD" && \
 	export CXXFLAGS="-Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable" && \
 	sh "$ICU_SRC/runConfigureICU" \
 		Linux \
+		$ICU_HOST_FLAG \
 		--enable-static \
 		--disable-shared \
 		--disable-icuio \
@@ -97,7 +108,23 @@ echo "==> ICU configure (out-of-tree: $ICU_BUILD)"
 		--disable-icuscriptbreaks \
 		--disable-extras \
 		--disable-samples \
-		--disable-tests && \
+		--disable-tests )
+
+echo "==> ICU make -j$JOBS (slow, ~10 min on 4-core)"
+# Post-process the generated ICU Makefile to add -Wno-error
+# directly to the CXXFLAGS expansion. This is the v0.5.0 fix
+# that makes the CXXFLAGS env var actually apply to every
+# sub-make (the env var alone was not enough because ICU's
+# configure-time capture doesn't bake the CXXFLAGS into all
+# generated Makefiles; some sub-makes read CXXFLAGS fresh and
+# some don't). The sed directly patches the Makefile expansion
+# so EVERY C++ compile step in the ICU build has -Wno-error.
+( cd "$ICU_BUILD" && \
+	find . -name Makefile -o -name Makefile.inc 2>/dev/null | \
+		xargs sed -i.bak \
+			-e 's|$(CXXFLAGS)|$(CXXFLAGS) -Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable|g' \
+			-e '/^CXXFLAGS/d' && \
+	rm -f $(find . -name Makefile.bak -o -name Makefile.inc.bak 2>/dev/null) && \
 	make -j"$JOBS" )
 
 echo "==> ICU make complete"

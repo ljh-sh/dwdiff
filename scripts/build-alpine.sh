@@ -28,15 +28,12 @@ ICU_BUILD="$BUILD_DIR/icu"
 mkdir -p "$ICU_BUILD"
 
 echo "==> ICU configure (musl-static + minimal)"
-# CXXFLAGS=-Wno-error tells the musl gcc-13 to NOT treat the
-# ICU 78.3 C++ warnings as errors. The warnings come from
-# chnsecal.cpp, olsontz.cpp, parse.cpp — all of which are
-# upstream ICU code that was clean on older gcc but trips
-# newer musl gcc's stricter warning checks. The C++ source
-# itself is correct; only the warning->error promotion breaks
-# the build. We export CXXFLAGS into the subshell so it
-# applies to BOTH the runConfigureICU invocation AND the
-# subsequent make.
+# CXXFLAGS env var alone is not enough — ICU's runConfigureICU
+# captures the env var at configure time but several sub-makes
+# (data/, common/, i18n/, tools/*/) read CXXFLAGS fresh and
+# don't see our post-configure changes. The fix is to post-process
+# the generated Makefiles with sed to inject -Wno-error directly
+# into the CXXFLAGS expansion. Same fix as scripts/build.sh.
 ( cd "$ICU_BUILD" && \
 	export CXXFLAGS="-Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable" && \
 	sh "$ROOT/upstream/icu/source/runConfigureICU" \
@@ -48,10 +45,18 @@ echo "==> ICU configure (musl-static + minimal)"
 		--disable-icuscriptbreaks \
 		--disable-extras \
 		--disable-samples \
-		--disable-tests && \
-	make -j"$(getconf _NPROCESSORS_ONLN)" )
+		--disable-tests )
 
-echo "==> ICU make complete"
+echo "==> ICU post-config: sed -i to inject -Wno-error into every CXXFLAGS expansion"
+( cd "$ICU_BUILD" && \
+	find . -name Makefile -o -name Makefile.inc 2>/dev/null | \
+		xargs sed -i.bak \
+			-e 's|$(CXXFLAGS)|$(CXXFLAGS) -Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable|g' \
+			-e '/^CXXFLAGS/d' && \
+	rm -f $(find . -name Makefile.bak -o -name Makefile.inc.bak 2>/dev/null) )
+
+echo "==> ICU make -j$(getconf _NPROCESSORS_ONLN) (slow, ~15 min)"
+( cd "$ICU_BUILD" && make -j"$(getconf _NPROCESSORS_ONLN)" )
 
 [ -f "$ICU_BUILD/lib/libicuuc.a" ] \
 	|| { echo "error: libicuuc.a not built" >&2; exit 1; }
