@@ -62,11 +62,16 @@ jobs:
         with:
           msystem: MINGW64
           update: true
+          # mingw-w64-x86_64-gcc provides gcc (C) AND g++ (C++)
+          # via the same package on MSYS2. dwdiff's bundled ICU
+          # needs C++, so we need this even for dwdiff.
           install: >-
             git autoconf automake libtool
             make base-devel
             mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gettext
             mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-libtool
 
       # ---- build + smoke ----
       # Musl: single Alpine `docker run` does build + smoke. ICU build

@@ -61,7 +61,9 @@ jobs:
             git autoconf automake libtool
             make base-devel
             mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gettext
             mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-libtool
 
       - name: Build + smoke on Alpine (musl)
         if: matrix.libc == 'musl'
