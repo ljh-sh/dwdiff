@@ -28,7 +28,16 @@ ICU_BUILD="$BUILD_DIR/icu"
 mkdir -p "$ICU_BUILD"
 
 echo "==> ICU configure (musl-static + minimal)"
+# CXXFLAGS=-Wno-error tells the musl gcc-13 to NOT treat the
+# ICU 78.3 C++ warnings as errors. The warnings come from
+# chnsecal.cpp, olsontz.cpp, parse.cpp — all of which are
+# upstream ICU code that was clean on older gcc but trips
+# newer musl gcc's stricter warning checks. The C++ source
+# itself is correct; only the warning->error promotion breaks
+# the build. Downgrading to ICU 76.1 would also work but
+# costs us security patches.
 ( cd "$ICU_BUILD" && \
+	CXXFLAGS="-Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable" \
 	sh "$ROOT/upstream/icu/source/runConfigureICU" \
 		Linux \
 		--enable-static \

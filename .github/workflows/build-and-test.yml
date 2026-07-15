@@ -95,6 +95,14 @@ jobs:
       - name: Build (Windows x86_64 — msys2 bash)
         if: matrix.os == 'windows' && matrix.target == 'x86_64-windows'
         shell: msys2 {0}
+        # Override DWDIFF_TARGET_ARCH to x86_64 (the windows build
+        # host arch is x86_64); set OS_HINT=windows so the build
+        # script configures CC/CXX = x86_64-w64-mingw32-{gcc,g++}
+        # and runConfigureICU gets --host=x86_64-w64-mingw32.
+        env:
+          DWDIFF_TARGET_ARCH: x86_64
+          DWDIFF_TARGET_OS: mingw32
+          DWDIFF_OS_HINT: windows
         run: bash scripts/build.sh
 
       # ---- smoke ----
