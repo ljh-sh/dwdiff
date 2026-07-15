@@ -83,9 +83,11 @@ mkdir -p "$ICU_BUILD"
 echo "==> ICU configure (out-of-tree: $ICU_BUILD)"
 # CXXFLAGS=-Wno-error tells the macOS clang to NOT treat the
 # ICU 78.3 C++ warnings as errors. Same fix as the Alpine
-# build — see comment in scripts/build-alpine.sh.
+# build — see comment in scripts/build-alpine.sh. We export
+# CXXFLAGS into the subshell so it applies to BOTH the
+# runConfigureICU invocation AND the subsequent make.
 ( cd "$ICU_BUILD" && \
-	CXXFLAGS="-Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable" \
+	export CXXFLAGS="-Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable" && \
 	sh "$ICU_SRC/runConfigureICU" \
 		Linux \
 		--enable-static \

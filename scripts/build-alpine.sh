@@ -34,10 +34,11 @@ echo "==> ICU configure (musl-static + minimal)"
 # upstream ICU code that was clean on older gcc but trips
 # newer musl gcc's stricter warning checks. The C++ source
 # itself is correct; only the warning->error promotion breaks
-# the build. Downgrading to ICU 76.1 would also work but
-# costs us security patches.
+# the build. We export CXXFLAGS into the subshell so it
+# applies to BOTH the runConfigureICU invocation AND the
+# subsequent make.
 ( cd "$ICU_BUILD" && \
-	CXXFLAGS="-Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable" \
+	export CXXFLAGS="-Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable" && \
 	sh "$ROOT/upstream/icu/source/runConfigureICU" \
 		Linux \
 		--enable-static \
