@@ -138,6 +138,11 @@ jobs:
       # `https://token.actions.githubusercontent.com`.
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          # See wdiff release.yml for the v2.6.3 rationale. Pin
+          # the v2 line — v3's --bundle-file API change broke
+          # our --output-signature/--output-certificate flow.
+          cosign-release: 'v2.6.3'
       - name: Sign release artefacts (keyless, OIDC)
         env:
           COSIGN_EXPERIMENTAL: 1
