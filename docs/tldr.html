@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TL;DR — dwdiff</title>
+<meta name="description" content="Quick reference: the 8 most useful dwdiff invocations for ASCII + CJK + scripts, copy-pasteable.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<header class="page-header">
+    <nav class="section-nav"><a href="index.html">↑ home</a> · <a href="install.html">install</a> · <strong>tldr</strong> · <a href="usage.html">usage</a> · <a href="cjk.html">cjk</a> · <a href="security.html">security</a></nav>
+</header>
+
+
+<section class="hero">
+    <h1>TL;DR</h1>
+    <p class="tagline">The 8 most useful <code>dwdiff</code>
+        invocations for ASCII + CJK. Copy-pasteable.</p>
+</section>
+
+<section id="basic">
+    <h2>The essentials</h2>
+<pre><code><b>Word diff (ASCII): show which words changed between two files</b>
+$ dwdiff old.txt new.txt
+the [-quick-]{+slow+} brown fox
+jumps over the [-lazy-]{+sleepy+} dog
+</code></pre>
+
+<pre><code><b>CJK word diff (the differentiator vs stock wdiff):</b>
+$ printf '体育老师无奈,总被佔课现象\n' &gt; a.txt
+$ printf '体育老师无奈,总被占课现象\n' &gt; b.txt
+$ dwdiff -d '，' a.txt b.txt
+体育老师无奈,[-总被佔课现象-]{+总被占课现象-}
+</code></pre>
+
+<pre><code><b>Treat ALL Unicode punctuation as delimiters</b>
+$ dwdiff -P old.txt new.txt
+</code></pre>
+
+<pre><code><b>Add custom whitespace characters (e.g. CJK ideographic space)</b>
+$ dwdiff -w $' \t\n　' old.txt new.txt   # U+3000 = ideographic space
+</code></pre>
+
+<pre><code><b>Show only the inserted / deleted words (no common text)</b>
+$ dwdiff -1 old.txt new.txt     # only deletes
+$ dwdiff -2 old.txt new.txt     # only inserts
+$ dwdiff -3 old.txt new.txt     # only common (inverts the question)
+</code></pre>
+</section>
+
+<section id="algos">
+    <h2>Diff algorithms</h2>
+<pre><code><b>Use the minimal-edit-cost algorithm (default is greedy)</b>
+$ dwdiff -A minimal old.txt new.txt
+</code></pre>
+
+<pre><code><b>Use the patience algorithm (better on big files with repeated blocks)</b>
+$ dwdiff -A patience old.txt new.txt
+</code></pre>
+
+<pre><code><b>Myers' O(ND) algorithm (best for very similar files)</b>
+$ dwdiff -A myers old.txt new.txt
+</code></pre>
+</section>
+
+<section id="ci">
+    <h2>Scripts, CI, and pipelines</h2>
+<pre><code><b>Re-format a unified diff at the word level (read from stdin)</b>
+$ git diff | dwdiff --diff-input
+</code></pre>
+
+<pre><code><b>Quiet mode: exit 0/1 only, no output (for shell scripts)</b>
+$ dwdiff -q old.txt new.txt &amp;&amp; echo same || echo different
+</code></pre>
+
+<pre><code><b>Statistics to stderr (word counts + change breakdown)</b>
+$ dwdiff -s old.txt new.txt
+old: 7 words
+new: 7 words  6 86% common  1 14% deleted  0 0% changed
+</code></pre>
+</section>
+
+<section id="unicode">
+    <h2>Unicode extras (powered by bundled ICU 78.3)</h2>
+<pre><code><b>Case-fold while comparing (handles Turkish dotted-i, German sharp-s, etc.)</b>
+$ dwdiff -i Straße.txt STRASSE.txt
+</code></pre>
+
+<pre><code><b>Read from stdin when one file is given as '-'</b>
+$ echo 'Hello, World!' | dwdiff - - &lt;&lt;&lt; 'Hello, 世界!'
+Hello, [-World!-]{+世界!}
+</code></pre>
+</section>
+
+<section id="when-not">
+    <h2>When NOT to use <code>dwdiff</code></h2>
+    <p>
+        If your input is plain ASCII English and you don't need
+        CJK or Unicode segmentation, <a
+        href="https://ljh-sh.github.io/wdiff/tldr.html">wdiff</a>
+        is faster and the binary is ~600x smaller (72 KB vs
+        34 MB). <code>dwdiff</code>'s 34 MB static binary is the
+        cost of embedded ICU 78.3; pay it only when you need
+        CJK / Unicode-segmentation features.
+    </p>
+</section>
+
+<footer>
+    <p>
+        <a href="index.html">↑ home</a> ·
+        <a href="install.html">install</a> ·
+        <a href="usage.html">usage</a> ·
+        <a href="cjk.html">cjk →</a> ·
+        <a href="https://github.com/ljh-sh/dwdiff">ljh-sh/dwdiff on GitHub</a>
+    </p>
+</footer>
+
+</main>
+
+</body>
+</html>
