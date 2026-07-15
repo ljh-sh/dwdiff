@@ -97,10 +97,10 @@ echo "==> ICU configure (out-of-tree: $ICU_BUILD)"
 		--disable-icuscriptbreaks \
 		--disable-extras \
 		--disable-samples \
-		--disable-tests )
+		--disable-tests && \
+	make -j"$JOBS" )
 
-echo "==> ICU make -j$JOBS (slow, ~10 min on 4-core)"
-( cd "$ICU_BUILD" && make -j"$JOBS" )
+echo "==> ICU make complete"
 
 [ -f "$ICU_BUILD/lib/libicuuc.a" ] \
 	|| { echo "error: libicuuc.a not built" >&2; exit 1; }
