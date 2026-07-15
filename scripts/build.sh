@@ -111,18 +111,25 @@ fi
 		--disable-tests )
 
 echo "==> ICU make -j$JOBS (slow, ~10 min on 4-core)"
-# Post-process the generated ICU Makefile to add -Wno-error
-# directly to the CXXFLAGS expansion. This is the v0.5.0 fix
-# that makes the CXXFLAGS env var actually apply to every
-# sub-make (the env var alone was not enough because ICU's
-# configure-time capture doesn't bake the CXXFLAGS into all
-# generated Makefiles; some sub-makes read CXXFLAGS fresh and
-# some don't). The sed directly patches the Makefile expansion
-# so EVERY C++ compile step in the ICU build has -Wno-error.
+# Post-process the generated ICU Makefiles to disable -Werror
+# and inject -Wno-error into every CXXFLAGS expansion. This is
+# the v0.5.0 fix that makes the CXXFLAGS env var actually
+# apply to every sub-make. Two strategies:
+#
+#   1. Blanket -Wno-error after the CXXFLAGS expansion so
+#      EVERY compile step (C and C++ alike) ignores warnings.
+#      This handles the musl gcc-13 + ICU 78.3 interaction
+#      where -Werror is enabled by default.
+#   2. Strip any -Werror / -pedantic-errors from the
+#      generated Makefile directly (in case ICU's configure
+#      detected -pedantic and added -pedantic-errors to the
+#      base CXXFLAGS).
 ( cd "$ICU_BUILD" && \
 	find . -name Makefile -o -name Makefile.inc 2>/dev/null | \
 		xargs sed -i.bak \
-			-e 's|$(CXXFLAGS)|$(CXXFLAGS) -Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable|g' \
+			-e 's|$(CXXFLAGS)|$(CXXFLAGS) -Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable -Wno-error=array-bounds -Wno-error=stringop-overflow -Wno-error=stringop-overread -Wno-error=maybe-uninitialized|g' \
+			-e 's|-Werror|-Wno-error|g' \
+			-e 's|-pedantic-errors|-Wno-error|g' \
 			-e '/^CXXFLAGS/d' && \
 	rm -f $(find . -name Makefile.bak -o -name Makefile.inc.bak 2>/dev/null) && \
 	make -j"$JOBS" )

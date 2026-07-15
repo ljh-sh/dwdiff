@@ -47,11 +47,13 @@ echo "==> ICU configure (musl-static + minimal)"
 		--disable-samples \
 		--disable-tests )
 
-echo "==> ICU post-config: sed -i to inject -Wno-error into every CXXFLAGS expansion"
+echo "==> ICU post-config: sed -i to disable -Werror and inject -Wno-error into every CXXFLAGS expansion"
 ( cd "$ICU_BUILD" && \
 	find . -name Makefile -o -name Makefile.inc 2>/dev/null | \
 		xargs sed -i.bak \
-			-e 's|$(CXXFLAGS)|$(CXXFLAGS) -Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable|g' \
+			-e 's|$(CXXFLAGS)|$(CXXFLAGS) -Wno-error -Wno-error=deprecated-declarations -Wno-error=unused-but-set-variable -Wno-error=array-bounds -Wno-error=stringop-overflow -Wno-error=stringop-overread -Wno-error=maybe-uninitialized|g' \
+			-e 's|-Werror|-Wno-error|g' \
+			-e 's|-pedantic-errors|-Wno-error|g' \
 			-e '/^CXXFLAGS/d' && \
 	rm -f $(find . -name Makefile.bak -o -name Makefile.inc.bak 2>/dev/null) )
 
