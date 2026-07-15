@@ -47,36 +47,41 @@ build time are **absent from the release** (no half-broken
 artefacts). `always()` release policy: if any entry succeeds,
 the release fires.
 
-### v0.3.0 matrix status
+### v0.4.0 matrix status
 
-| target | runner | linkage | v0.3.0? | blocked by |
+| target | runner | linkage | v0.4.0? | blocked by |
 |---|---|---|---|---|
-| `x86_64-linux-musl`  | `ubuntu-latest` + Alpine 3.20 docker | fully static musl (incl. ICU) | ❌ | ICU 78.3 C++ build hits warnings-as-errors in `chnsecal.cpp` / `olsontz.cpp` / `parse.cpp` on musl gcc-13; deferred to v0.4.0 |
+| `x86_64-linux-musl`  | `ubuntu-latest` + Alpine 3.20 docker | fully static musl (incl. ICU) | ❌ | Same C++ warning issue as before — `CXXFLAGS=-Wno-error` env var is set in build.sh but doesn't propagate to the sub-make that compiles `chnsecal.cpp` / `olsontz.cpp` / `parse.cpp`. Need to post-process the ICU Makefile with `sed` after configure. Deferred to v0.5.0 |
 | `aarch64-linux-musl` | `ubuntu-24.04-arm` + Alpine 3.20 docker | fully static musl (incl. ICU) | ❌ | same as x86_64-linux-musl |
 | `aarch64-macos`      | `macos-14` | static, system libc/libSystem | ✅ | — |
-| `x86_64-macos`       | `macos-14` (cross from aarch64) | static, system libc/libSystem | ✅ | — |
-| `x86_64-windows`     | `windows-latest` + MSYS2 + mingw64 | fully static (no DLLs) | ❌ | ICU's `runConfigureICU Linux` checks for `clang++`; mingw64 doesn't ship clang++; deferred to v0.4.0 (will switch to GCC config) |
+| `x86_64-macos`       | `macos-14` (cross from aarch64) | static, system libc/libSystem | ❌ | libicutest.a build fails in ICU on the cross-compile; the same `CXXFLAGS` propagation issue as musl. Deferred to v0.5.0 |
+| `x86_64-windows`     | `windows-latest` + MSYS2 + mingw64 | fully static (no DLLs) | ❌ | `libsicudt.a` build fails (`Error 127`); the mingw env vars I set in v0.4.0-rc1 didn't fully resolve. Need a real fix in scripts/build.sh's windows case. Deferred to v0.5.0 |
 
-**v0.2.6 → v0.3.0:** **+1 target** (x86_64-macos). The
-`ac_cv_type_socklen_t=socklen_t` cache variable + the
-`--with-included-regex` flag closed the diffutils 3.10
-cross-compile gap.
+**v0.3.0 → v0.4.0:** **no new targets shipped** (still 1 of 5).
+The v0.4.0 attempt exposed that the CXXFLAGS env-var trick
+that worked for wdiff (where diffutils' Makefile is small)
+doesn't work for dwdiff (where ICU's Makefile is much larger
+and has multiple sub-makes that don't inherit the env var).
+Documented in v0.5.0 plan below.
 
-**v0.4.0 plan:**
+**v0.5.0 plan:**
 
-1. Add `CXXFLAGS=-Wno-error=deprecated-declarations
-   -Wno-error=unused-but-set-variable` to the ICU build
-   invocation so the C++ warnings don't fail the build on
-   musl.
-2. For Windows: pass `CC=x86_64-w64-mingw32-gcc` (and g++)
-   to `runConfigureICU` with `--host=x86_64-w64-mingw32` so
-   ICU's clang++ probe is bypassed.
-3. Alternative for linux-musl: downgrade ICU to 76.1 (predates
-   the `parse.cpp` regression).
+1. **dwdiff linux-musl ×2**: `sed -i 's|$(CXXFLAGS)|$(CXXFLAGS) -Wno-error|' build/icu/*/Makefile`
+   immediately after `runConfigureICU` and before `make`. This
+   directly patches the Makefile to add `-Wno-error` to CXXFLAGS
+   in EVERY C++ compile rule, regardless of subshell env var
+   inheritance. (Same fix as #3.)
+2. **dwdiff x86_64-windows**: rewrite the windows case in
+   `scripts/build.sh` to actually pass
+   `CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++
+   --host=x86_64-w64-mingw32` to `runConfigureICU`. The
+   current v0.4.0 attempt had the env vars but the wrong
+   `runConfigureICU` host triple.
+3. **dwdiff x86_64-macos**: same fix as #1 — `sed` the ICU
+   Makefile post-configure.
 
-The current v0.3.0 ships **aarch64-macos + x86_64-macos**
-(2 of 5). aarch64-windows and additional targets remain
-deferred.
+The current v0.4.0 ships **aarch64-macos** only (1 of 5).
+aarch64-windows and additional targets remain deferred.
 
 ## Quick check after install
 
