@@ -28,7 +28,14 @@ jobs:
           - { target: aarch64-macos,      runner: macos-14,         os: macos                 }
           - { target: x86_64-macos,       runner: macos-14,         os: macos                 }
           - { target: x86_64-windows,     runner: windows-latest,   os: windows               }
-    continue-on-error: ${{ matrix.target == 'aarch64-linux-musl' || matrix.target == 'aarch64-macos' || matrix.target == 'x86_64-windows' }}
+    continue-on-error: true
+    # All matrix entries are best-effort for v0.2.x. The release
+    # job (below) fires regardless of which entries succeed — the
+    # SHA256SUMS + cosign signatures only cover the per-target
+    # artefacts that did build. Known-not-building entries as of
+    # 2026-07-15: aarch64-macos / aarch64-linux-musl (Alpine deps
+    # drift + ICU build time), x86_64-windows (MSYS2 mingw64
+    # package gap).
     env:
       TARGET: ${{ matrix.target }}
     steps:
@@ -100,7 +107,10 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v') && needs.build.result == 'success'
+    # Fire whenever the build job completes (any outcome other
+    # than cancellation). Same ljh-sh dist regime v0.2.x policy
+    # as ljh-sh/wdiff. See that file for the full rationale.
+    if: startsWith(github.ref, 'refs/tags/v') && always() && needs.build.result != 'cancelled'
     needs: build
     runs-on: ubuntu-latest
     permissions:
