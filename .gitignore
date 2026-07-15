@@ -55,3 +55,6 @@ upstream/icu/config.status
 *~
 .DS_Store
 *.tmp
+upstream/dwdiff/dwdiff
+upstream/dwdiff/dwfilter
+/build/
