@@ -40,21 +40,43 @@ manual install instructions.
 
 ## Platform matrix
 
-Every release builds **5 targets** via GitHub Actions on native
-runners. Linux uses **musl-static** (Alpine toolchain) so the
-binary runs on Alpine, Debian/Ubuntu, RHEL/Fedora, Arch —
-every Linux distro — with zero system-library dependencies;
-there is intentionally no separate glibc/dynamic Linux variant.
+Every release publishes the targets that successfully built.
+The full 5-target matrix (linux-musl ×2, macos ×2, windows ×1)
+is in `.github/workflows/release.yml`; targets that fail at
+build time are **absent from the release** (no half-broken
+artefacts). `always()` release policy: if any entry succeeds,
+the release fires.
 
-| target | runner | linkage | archive |
-|---|---|---|---|
-| `x86_64-linux-musl`  | `ubuntu-latest` + Alpine 3.20 docker | fully static musl | `.tar.gz` |
-| `aarch64-linux-musl` | `ubuntu-24.04-arm` + Alpine 3.20 docker | fully static musl | `.tar.gz` |
-| `aarch64-macos`      | `macos-14` | static, system libc/libSystem | `.tar.gz` |
-| `x86_64-macos`       | `macos-14` (cross from aarch64) | static, system libc/libSystem | `.tar.gz` |
-| `x86_64-windows`     | `windows-latest` + MSYS2 + mingw64 | fully static (no DLLs) | `.zip` |
+### v0.3.0 matrix status
 
-aarch64-windows and additional targets are deferred.
+| target | runner | linkage | v0.3.0? | blocked by |
+|---|---|---|---|---|
+| `x86_64-linux-musl`  | `ubuntu-latest` + Alpine 3.20 docker | fully static musl (incl. ICU) | ❌ | ICU 78.3 C++ build hits warnings-as-errors in `chnsecal.cpp` / `olsontz.cpp` / `parse.cpp` on musl gcc-13; deferred to v0.4.0 |
+| `aarch64-linux-musl` | `ubuntu-24.04-arm` + Alpine 3.20 docker | fully static musl (incl. ICU) | ❌ | same as x86_64-linux-musl |
+| `aarch64-macos`      | `macos-14` | static, system libc/libSystem | ✅ | — |
+| `x86_64-macos`       | `macos-14` (cross from aarch64) | static, system libc/libSystem | ✅ | — |
+| `x86_64-windows`     | `windows-latest` + MSYS2 + mingw64 | fully static (no DLLs) | ❌ | ICU's `runConfigureICU Linux` checks for `clang++`; mingw64 doesn't ship clang++; deferred to v0.4.0 (will switch to GCC config) |
+
+**v0.2.6 → v0.3.0:** **+1 target** (x86_64-macos). The
+`ac_cv_type_socklen_t=socklen_t` cache variable + the
+`--with-included-regex` flag closed the diffutils 3.10
+cross-compile gap.
+
+**v0.4.0 plan:**
+
+1. Add `CXXFLAGS=-Wno-error=deprecated-declarations
+   -Wno-error=unused-but-set-variable` to the ICU build
+   invocation so the C++ warnings don't fail the build on
+   musl.
+2. For Windows: pass `CC=x86_64-w64-mingw32-gcc` (and g++)
+   to `runConfigureICU` with `--host=x86_64-w64-mingw32` so
+   ICU's clang++ probe is bypassed.
+3. Alternative for linux-musl: downgrade ICU to 76.1 (predates
+   the `parse.cpp` regression).
+
+The current v0.3.0 ships **aarch64-macos + x86_64-macos**
+(2 of 5). aarch64-windows and additional targets remain
+deferred.
 
 ## Quick check after install
 
