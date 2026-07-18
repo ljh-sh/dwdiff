@@ -37,6 +37,7 @@ jobs:
           - { target: aarch64-macos,      runner: macos-14,         os: macos                 }
           - { target: x86_64-macos,       runner: macos-14,         os: macos                 }
           - { target: x86_64-windows,     runner: windows-latest,   os: windows               }
+          - { target: aarch64-windows,    runner: windows-11-arm,   os: windows               }
     continue-on-error: true
     # All matrix entries are best-effort for v0.2.x. See
     # release.yml for the matching always-fire policy.
@@ -69,6 +70,7 @@ jobs:
             git autoconf automake libtool
             make base-devel
             mingw-w64-x86_64-gcc
+            mingw-w64-cross-toolchain-aarch64
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-libtool
@@ -101,6 +103,19 @@ jobs:
         # and runConfigureICU gets --host=x86_64-w64-mingw32.
         env:
           DWDIFF_TARGET_ARCH: x86_64
+          DWDIFF_TARGET_OS: mingw32
+          DWDIFF_OS_HINT: windows
+        run: bash scripts/build.sh
+
+      - name: Build (Windows aarch64 — cross via mingw cross-toolchain)
+        if: matrix.target == 'aarch64-windows'
+        shell: msys2 {0}
+        # Use mingw-w64-cross-toolchain-aarch64 (provides
+        # aarch64-w64-mingw32-{gcc,g++}). windows-11-arm runner is
+        # actually an x86_64 host with aarch64 build tools; the
+        # cross-compile produces aarch64 PE/COFF.
+        env:
+          DWDIFF_TARGET_ARCH: aarch64
           DWDIFF_TARGET_OS: mingw32
           DWDIFF_OS_HINT: windows
         run: bash scripts/build.sh
