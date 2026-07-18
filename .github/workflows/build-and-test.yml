@@ -70,7 +70,6 @@ jobs:
             git autoconf automake libtool
             make base-devel
             mingw-w64-x86_64-gcc
-            mingw-w64-cross-toolchain-aarch64
             mingw-w64-x86_64-gettext
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-libtool
@@ -110,7 +109,6 @@ jobs:
       - name: Build (Windows aarch64 — cross via mingw cross-toolchain)
         if: matrix.target == 'aarch64-windows'
         shell: msys2 {0}
-        # Use mingw-w64-cross-toolchain-aarch64 (provides
         # aarch64-w64-mingw32-{gcc,g++}). windows-11-arm runner is
         # actually an x86_64 host with aarch64 build tools; the
         # cross-compile produces aarch64 PE/COFF.
