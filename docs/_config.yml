@@ -5,7 +5,7 @@
 title: "dwdiff"
 description: "Free (GPL-3.0) Unicode-aware word-level diff with CJK support, distributed as a single statically-linked binary for Linux/macOS/Windows. Vendored dwdiff 2.1.4 + libicu 78.3 by ljh-sh."
 
-# Site served at https://ljh-sh.github.io/dwdiff/
+# Site served at https://dwdiff.ljh.sh/
 baseurl: /dwdiff
 url:    https://ljh-sh.github.io
 

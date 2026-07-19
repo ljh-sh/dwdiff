@@ -196,5 +196,5 @@ jobs:
               dwdiff-x86_64-linux-musl.tar.gz.cert
             ```
 
-            See [ljh-sh.github.io/dwdiff](https://ljh-sh.github.io/dwdiff/) for the full
+            See [dwdiff.ljh.sh](https://dwdiff.ljh.sh/) for the full
             install walkthrough, tldr examples, and security audit.
